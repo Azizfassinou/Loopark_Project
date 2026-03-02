@@ -1,17 +1,11 @@
 import "dotenv/config";
 import { PrismaClient, MobilityType } from '@prisma/client'
-import { PrismaMariaDb } from '@prisma/adapter-mariadb'
-import * as mariadb from 'mariadb'
+import { PrismaPg } from '@prisma/adapter-pg'
+import pg from 'pg'
 
-const url = new URL(process.env.DATABASE_URL!)
-const adapter = new PrismaMariaDb({
-    host: url.hostname,
-    port: parseInt(url.port) || 3306,
-    user: url.username,
-    password: decodeURIComponent(url.password),
-    database: url.pathname.substring(1),
-    connectionLimit: 5,
-})
+const connectionString = `${process.env.DATABASE_URL}`
+const pool = new pg.Pool({ connectionString })
+const adapter = new PrismaPg(pool)
 const prisma = new PrismaClient({ adapter })
 
 async function main() {
@@ -41,7 +35,7 @@ async function main() {
     })
 
     // Create some Spots
-    const spot1 = await prisma.spot.create({
+    await prisma.spot.create({
         data: {
             title: 'Garage sécurisé - Centre Ville',
             description: 'Un garage fermé et surveillé, parfait pour les vélos électriques.',
@@ -55,7 +49,7 @@ async function main() {
         },
     })
 
-    const spot2 = await prisma.spot.create({
+    await prisma.spot.create({
         data: {
             title: 'Point d\'attache couvert - Gare Part-Dieu',
             description: 'Emplacement abrité avec arceau solide.',
@@ -69,7 +63,7 @@ async function main() {
         },
     })
 
-    const spot3 = await prisma.spot.create({
+    await prisma.spot.create({
         data: {
             title: 'Espace Trottinettes - Vieux Lyon',
             description: 'Petit espace optimisé pour les trottinettes électriques.',
@@ -83,7 +77,6 @@ async function main() {
         },
     })
 
-    console.log({ host, user, spots: [spot1, spot2, spot3] })
     console.log('Seeding finished.')
 }
 
