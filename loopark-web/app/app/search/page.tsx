@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Navbar } from '@/components/ui/Navbar';
 import { MapPin, Bike, Scooter, Search as SearchIcon, Compass, Sparkles, Filter } from 'lucide-react';
 
 interface Host {
@@ -20,12 +19,19 @@ interface Spot {
     price: number;
     capacity: number;
     host: Host;
+    latitude: number | null;
+    longitude: number | null;
 }
 
 export default function SearchPage() {
     const [spots, setSpots] = useState<Spot[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [expandedSpots, setExpandedSpots] = useState<Record<string, boolean>>({});
     const router = useRouter();
+
+    const toggleDescription = (id: string) => {
+        setExpandedSpots(prev => ({ ...prev, [id]: !prev[id] }));
+    };
 
     useEffect(() => {
         async function fetchSpots() {
@@ -42,128 +48,126 @@ export default function SearchPage() {
         fetchSpots();
     }, []);
 
-    const getTypeIcon = (type: string) => {
-        switch (type) {
-            case 'BIKE': return <Bike className="h-4 w-4" />;
-            case 'SCOOTER': return <Scooter className="h-4 w-4" />;
-            default: return <div className="flex gap-1"><Bike className="h-4 w-4" /><Scooter className="h-4 w-4" /></div>;
+    const openInMaps = (lat: number | null, lng: number | null, address: string) => {
+        if (lat && lng) {
+            window.open(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`, '_blank');
+        } else {
+            window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`, '_blank');
         }
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-            <Navbar />
-
+        <div className="min-h-screen bg-[#fdfdfd] dark:bg-[#020617]">
             <main className="p-4 md:p-8 lg:p-12 max-w-7xl mx-auto space-y-12">
-                {/* Hero / Hero-ish Section */}
+                {/* Header Section */}
                 <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 pt-4">
-                    <div className="space-y-3">
-                        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-green/10 text-brand-green text-xs font-black uppercase tracking-widest border border-brand-green/20">
-                            <Sparkles className="h-3.5 w-3.5" />
-                            Trouver un parking
+                    <div className="space-y-4">
+                        <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-brand-green/5 text-brand-green text-[10px] font-black uppercase tracking-[0.2em] border border-brand-green/10">
+                            <Sparkles className="h-4 w-4" />
+                            Paris • Open Mobility
                         </div>
-                        <h1 className="text-4xl md:text-5xl font-black text-slate-900 dark:text-white tracking-tight">
-                            Explorez vos <span className="gradient-text">destinations</span>
+                        <h1 className="text-5xl md:text-7xl font-black text-slate-900 dark:text-white tracking-tighter leading-none">
+                            Besoin d'un <span className="gradient-text">spot</span> ?
                         </h1>
-                        <p className="text-lg font-medium text-slate-500 dark:text-slate-400 max-w-xl">
-                            Découvrez les parkings sécurisés les mieux notés autour de vous, réservés par la communauté Loopark.
+                        <p className="text-xl font-medium text-slate-400 max-w-xl leading-relaxed">
+                            Accédez instantanément au réseau de stationnement sécurisé de la capitale.
                         </p>
                     </div>
 
                     <div className="w-full lg:w-auto flex flex-col sm:flex-row gap-4">
-                        <div className="relative flex-1 sm:w-80 group">
-                            <div className="absolute inset-0 bg-brand-green/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-full" />
-                            <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 z-10" />
+                        <div className="relative flex-1 sm:w-96 group">
+                            <div className="absolute inset-0 bg-brand-green/10 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-full" />
+                            <SearchIcon className="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 z-10" />
                             <input
                                 type="text"
-                                placeholder="Rechercher une adresse..."
-                                className="pl-12 pr-4 py-4 bg-white dark:bg-slate-900 border-none shadow-xl shadow-slate-200/50 dark:shadow-none rounded-2xl w-full focus:outline-none focus:ring-4 focus:ring-brand-green/20 transition-all relative z-10 font-medium placeholder:text-slate-400"
+                                placeholder="Chercher un quartier, une rue..."
+                                className="pl-16 pr-6 py-5 bg-white dark:bg-slate-900/50 backdrop-blur-xl border border-slate-100 dark:border-white/5 shadow-2xl shadow-slate-200/50 dark:shadow-none rounded-[2rem] w-full focus:outline-none focus:ring-4 focus:ring-brand-green/10 transition-all relative z-10 font-bold text-slate-900 dark:text-white placeholder:text-slate-300"
                             />
                         </div>
-                        <Button variant="secondary" className="h-full px-6 flex items-center gap-2 font-bold shadow-lg">
-                            <Filter className="h-5 w-5" />
-                            <span className="hidden sm:inline">Filtres</span>
-                        </Button>
                     </div>
                 </div>
 
                 {isLoading ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {[1, 2, 3].map((i) => (
-                            <div key={i} className="h-80 rounded-3xl bg-slate-100 dark:bg-slate-900 animate-pulse border-2 border-slate-50 dark:border-slate-800" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+                        {[1, 2, 3, 4, 5, 6].map((i) => (
+                            <div key={i} className="h-[450px] rounded-[3rem] bg-slate-50 dark:bg-slate-900/40 animate-pulse border border-slate-100 dark:border-white/5" />
                         ))}
                     </div>
-                ) : spots.length === 0 ? (
-                    <div className="text-center py-32 glass rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-800 flex flex-col items-center gap-4">
-                        <Compass className="h-16 w-16 text-slate-300 dark:text-slate-700 animate-bounce" />
-                        <p className="text-slate-500 dark:text-slate-400 text-xl font-bold">Aucun parking trouvé pour le moment.</p>
-                        <Button variant="outline" onClick={() => router.refresh()}>Actualiser la zone</Button>
-                    </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-12">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 pb-20">
                         {spots.map((spot) => (
-                            <Card key={spot.id} className="overflow-hidden group flex flex-col shadow-xl shadow-slate-200/40 dark:shadow-none hover:shadow-brand-green/20">
-                                {/* Spot Card Header with Gradient and Overlay */}
-                                <div className="h-48 relative overflow-hidden">
-                                    {/* Background Gradient */}
-                                    <div className={`absolute inset-0 bg-gradient-to-br transition-all duration-500 group-hover:scale-110 ${spot.type === 'BIKE' ? 'from-brand-green to-emerald-500' :
-                                            spot.type === 'SCOOTER' ? 'from-brand-purple to-indigo-600' :
-                                                'from-cyan-400 to-brand-green'
-                                        }`} />
+                            <Card key={spot.id} className="overflow-hidden group flex flex-col bg-white dark:bg-slate-900/40 rounded-[3rem] border border-slate-100 dark:border-white/5 hover:border-brand-green/30 transition-all duration-500 shadow-xl hover:shadow-[0_32px_64px_-16px_rgba(74,222,128,0.15)]">
+                                {/* Visual Header */}
+                                <div className="h-56 relative overflow-hidden">
+                                    <div className="absolute inset-0 bg-gradient-to-br from-brand-green via-emerald-500 to-brand-cyan opacity-80 group-hover:scale-110 transition-transform duration-700" />
+                                    <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_1px_1px,white_1px,transparent_0)] bg-[size:16px_16px]" />
 
-                                    {/* Decorative dots/pattern as seen in the premium UI */}
-                                    <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_1px_1px,white_1px,transparent_0)] bg-[size:10px_10px]" />
-
-                                    <div className="absolute inset-0 p-6 flex flex-col justify-between z-10">
+                                    <div className="absolute inset-0 p-8 flex flex-col justify-between z-10">
                                         <div className="flex justify-between items-start">
-                                            <div className="glass px-4 py-2 rounded-xl text-xs font-black text-white flex items-center gap-2 border-white/30 backdrop-blur-md">
-                                                {getTypeIcon(spot.type)}
-                                                {spot.type === 'BOTH' ? 'MIXTE' : spot.type}
+                                            <div className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-2xl text-[10px] font-black text-white uppercase tracking-widest border border-white/20">
+                                                {spot.type}
                                             </div>
-                                            <div className="bg-white rounded-2xl px-4 py-2 shadow-xl border border-slate-50 transition-transform group-hover:scale-110">
-                                                <span className="text-brand-green font-black text-lg">{spot.price}€</span>
-                                                <span className="text-slate-400 text-xs font-bold ml-1 uppercase">/h</span>
+                                            <div className="bg-white dark:bg-slate-900 rounded-[1.5rem] px-5 py-2.5 shadow-2xl transition-transform group-hover:scale-110">
+                                                <span className="text-brand-green font-black text-xl">{spot.price === 0 ? 'GO' : `${spot.price}€`}</span>
+                                                <span className="text-slate-400 text-[10px] font-black ml-1 uppercase tracking-widest leading-none">
+                                                    {spot.price === 0 ? 'OFFERT' : '/H'}
+                                                </span>
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center text-white font-bold text-sm bg-black/10 backdrop-blur-sm -mx-6 px-6 py-2">
-                                            <MapPin className="h-4 w-4 mr-2" />
-                                            <span className="truncate">{spot.address.split(',')[1] || spot.address}</span>
+                                        <div
+                                            onClick={() => openInMaps(spot.latitude || null, spot.longitude || null, spot.address)}
+                                            className="bg-black/20 hover:bg-black/40 backdrop-blur-xl -mx-8 px-8 py-4 flex items-center justify-between cursor-pointer transition-colors group/address"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <MapPin className="h-5 w-5 text-white animate-pulse" />
+                                                <span className="text-white font-black text-sm tracking-tight truncate max-w-[200px]">
+                                                    {spot.address.split(',')[0]}
+                                                </span>
+                                            </div>
+                                            <div className="text-[10px] font-black text-white/60 uppercase tracking-widest group-hover/address:text-white transition-colors">
+                                                Ouvrir Maps →
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <CardHeader className="pb-4 min-h-[90px]">
-                                    <CardTitle className="text-2xl group-hover:gradient-text transition-all duration-300">
+                                <CardHeader className="p-8 pb-4">
+                                    <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-tight group-hover:gradient-text transition-all duration-300">
                                         {spot.title}
-                                    </CardTitle>
+                                    </h3>
                                 </CardHeader>
 
-                                <CardContent className="flex-1">
-                                    <p className="text-slate-500 dark:text-slate-400 text-sm font-medium line-clamp-2 leading-relaxed">
-                                        {spot.description || "Un espace sécurisé et surveillé pour votre moyen de locomotion doux au coeur de la ville."}
-                                    </p>
+                                <CardContent className="px-8 flex-1">
+                                    <div className="relative">
+                                        <p className={`text-slate-400 font-medium text-base leading-relaxed ${expandedSpots[spot.id] ? '' : 'line-clamp-2'}`}>
+                                            {spot.description}
+                                        </p>
+                                        <button
+                                            onClick={() => toggleDescription(spot.id)}
+                                            className="mt-2 text-[10px] font-black uppercase tracking-widest text-brand-green hover:text-brand-green/80 transition-colors flex items-center gap-1"
+                                        >
+                                            {expandedSpots[spot.id] ? 'Voir moins' : 'Plus +'}
+                                        </button>
+                                    </div>
 
-                                    <div className="mt-8 flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
-                                        <div className="flex items-center gap-3">
-                                            <div className="h-10 w-10 rounded-full bg-brand-purple/10 flex items-center justify-center font-black text-brand-purple text-xs border border-brand-purple/10">
-                                                {spot.host.name.charAt(0)}
-                                            </div>
-                                            <div className="flex flex-col">
-                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Hôte</span>
-                                                <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{spot.host.name}</span>
-                                            </div>
+                                    <div className="mt-8 grid grid-cols-2 gap-4">
+                                        <div className="p-5 rounded-[2rem] bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-white/5 space-y-1">
+                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Capacité</span>
+                                            <span className="text-xl font-black text-slate-900 dark:text-white leading-none">
+                                                {spot.capacity} <span className="text-xs text-slate-400">places</span>
+                                            </span>
                                         </div>
-                                        <div className="text-right">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Dispo</span>
-                                            <span className="text-sm font-black text-brand-green">{spot.capacity} places</span>
+                                        <div className="p-5 rounded-[2rem] bg-brand-green/5 border border-brand-green/10 space-y-1">
+                                            <span className="text-[9px] font-black text-brand-green uppercase tracking-widest block">Statut</span>
+                                            <span className="text-xl font-black text-brand-green leading-none">Libre</span>
                                         </div>
                                     </div>
                                 </CardContent>
 
-                                <CardFooter>
-                                    <Button className="w-full text-base font-black tracking-wide h-14" variant="default">
-                                        RESERVER MAINTENANT
+                                <CardFooter className="p-8 pt-4">
+                                    <Button className="w-full h-16 rounded-3xl text-[10px] font-black tracking-[0.2em] shadow-2xl shadow-brand-green/20 group-hover:scale-[1.02] transition-transform">
+                                        RÉSERVER CE SPOT
                                     </Button>
                                 </CardFooter>
                             </Card>

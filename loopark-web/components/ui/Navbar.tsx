@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Logo } from './Logo';
 import { Button } from './Button';
-import { Search, User, LogOut } from 'lucide-react';
+import { Search, User, LogOut, MapPin } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 
@@ -12,6 +12,7 @@ export const Navbar = () => {
 
     const menuItems = [
         { name: 'Rechercher', href: '/app/search', icon: Search },
+        { name: 'Je propose', href: '/app/host', icon: MapPin },
         { name: 'Profil', href: '/app/profile', icon: User },
     ];
 
@@ -33,8 +34,8 @@ export const Navbar = () => {
                                         key={item.href}
                                         href={item.href}
                                         className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${isActive
-                                                ? 'bg-brand-green/10 text-brand-green'
-                                                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                            ? 'bg-brand-green/10 text-brand-green'
+                                            : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
                                             }`}
                                     >
                                         <Icon className="h-4 w-4" />
@@ -50,7 +51,7 @@ export const Navbar = () => {
                             variant="ghost"
                             size="sm"
                             className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-                            onClick={() => signOut({ callbackUrl: '/login' })}
+                            onClick={() => signOut({ redirectTo: '/login' })}
                         >
                             <LogOut className="h-4 w-4 mr-2" />
                             <span className="hidden sm:inline">Déconnexion</span>

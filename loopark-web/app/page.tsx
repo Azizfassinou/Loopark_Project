@@ -1,11 +1,16 @@
 'use client';
 
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Logo } from '@/components/ui/Logo';
-import { ArrowRight, ShieldCheck, Zap, Heart, Globe, Sparkles, Navigation } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Zap, Heart, Globe, Sparkles, Navigation, UserCircle } from 'lucide-react';
 
 export default function Home() {
+    const { data: session, status } = useSession();
+    const isLoading = status === "loading";
+    const isLoggedIn = !!session;
+
     return (
         <div className="flex flex-col min-h-screen bg-white dark:bg-slate-950 overflow-hidden">
             {/* Background Ornaments */}
@@ -15,14 +20,30 @@ export default function Home() {
             {/* Header */}
             <header className="fixed w-full z-50 glass border-b border-border-color">
                 <div className="container mx-auto px-4 md:px-8 h-20 flex items-center justify-between">
-                    <Logo className="h-10" />
+                    <Link href="/">
+                        <Logo className="h-10" />
+                    </Link>
                     <div className="flex items-center gap-4">
-                        <Link href="/login" className="hidden sm:block">
-                            <Button variant="ghost" className="font-bold">Connexion</Button>
-                        </Link>
-                        <Link href="/register">
-                            <Button className="font-bold px-8">Rejoindre</Button>
-                        </Link>
+                        {!isLoading && (
+                            <>
+                                {isLoggedIn ? (
+                                    <Link href="/app/search">
+                                        <Button className="font-bold px-8 flex items-center gap-2">
+                                            <UserCircle className="h-5 w-5" /> MON ESPACE
+                                        </Button>
+                                    </Link>
+                                ) : (
+                                    <>
+                                        <Link href="/login" className="hidden sm:block">
+                                            <Button variant="ghost" className="font-bold">Connexion</Button>
+                                        </Link>
+                                        <Link href="/register">
+                                            <Button className="font-bold px-8">Rejoindre</Button>
+                                        </Link>
+                                    </>
+                                )}
+                            </>
+                        )}
                     </div>
                 </div>
             </header>
