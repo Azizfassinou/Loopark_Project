@@ -2,13 +2,15 @@
 
 import Link from 'next/link';
 import { Logo } from './Logo';
-import { Button } from './Button';
-import { Search, User, LogOut, MapPin } from 'lucide-react';
+import { Search, User, MapPin, LogOut, Shield } from 'lucide-react';
 import { usePathname } from 'next/navigation';
-import { signOut } from 'next-auth/react';
+import { signOut, useSession } from 'next-auth/react';
+import { ThemeToggle } from './ThemeToggle';
 
 export const Navbar = () => {
     const pathname = usePathname();
+    const { data: session } = useSession();
+    const isAdmin = session?.user?.role === 'ADMIN';
 
     const menuItems = [
         { name: 'Rechercher', href: '/app/search', icon: Search },
@@ -17,14 +19,13 @@ export const Navbar = () => {
     ];
 
     return (
-        <header className="sticky top-0 z-50 w-full glass border-b border-border-color">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex justify-between items-center h-20">
+        <header className="sticky top-0 z-50 w-full border-b border-[var(--border)] bg-[var(--background)]">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6">
+                <div className="flex justify-between items-center h-14">
                     <div className="flex items-center gap-8">
-                        <Link href="/app/search" className="hover:opacity-80 transition-opacity">
-                            <Logo className="h-10" />
+                        <Link href="/app/search">
+                            <Logo />
                         </Link>
-
                         <nav className="hidden md:flex items-center gap-1">
                             {menuItems.map((item) => {
                                 const Icon = item.icon;
@@ -33,9 +34,9 @@ export const Navbar = () => {
                                     <Link
                                         key={item.href}
                                         href={item.href}
-                                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${isActive
-                                            ? 'bg-brand-green/10 text-brand-green'
-                                            : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${isActive
+                                            ? 'text-[var(--foreground)] font-medium bg-[var(--surface)]'
+                                            : 'text-[var(--muted)] hover:text-[var(--foreground)]'
                                             }`}
                                     >
                                         <Icon className="h-4 w-4" />
@@ -46,16 +47,26 @@ export const Navbar = () => {
                         </nav>
                     </div>
 
-                    <div className="flex items-center gap-4">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-                            onClick={() => signOut({ redirectTo: '/login' })}
+                    <div className="flex items-center gap-2">
+                        <ThemeToggle />
+
+                        {isAdmin && (
+                            <Link
+                                href="/admin"
+                                className="hidden sm:flex items-center gap-1.5 text-xs font-medium text-[var(--muted)] hover:text-[var(--foreground)] border border-[var(--border)] px-3 py-1.5 rounded-md transition-colors"
+                            >
+                                <Shield className="h-3.5 w-3.5" />
+                                Admin
+                            </Link>
+                        )}
+
+                        <button
+                            onClick={() => signOut({ callbackUrl: '/' })}
+                            className="flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors rounded-md"
                         >
-                            <LogOut className="h-4 w-4 mr-2" />
+                            <LogOut className="h-4 w-4" />
                             <span className="hidden sm:inline">Déconnexion</span>
-                        </Button>
+                        </button>
                     </div>
                 </div>
             </div>

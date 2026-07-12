@@ -1,72 +1,146 @@
 import "dotenv/config";
-import { PrismaClient, MobilityType } from '@prisma/client'
-import { withAccelerate } from '@prisma/extension-accelerate'
+import { PrismaClient, MobilityType } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
+import fs from 'fs';
+import csv from 'csv-parser';
+import path from 'path';
 
-const prisma = new PrismaClient({
-    accelerateUrl: process.env.DATABASE_URL
-}).$extends(withAccelerate())
+const pool = new Pool({ connectionString: process.env.DIRECT_URL || process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
-    console.log('Cleaning database...')
-    // Note: deleteMany might be restricted on some Accelerate/Free tiers if not using directUrl
-    // but for seeding it should work if the DATABASE_URL has permissions.
-    await (prisma as any).booking.deleteMany({})
-    await (prisma as any).spot.deleteMany({})
-    await (prisma as any).user.deleteMany({})
+    console.log('Starting seed process...');
 
-    console.log('Seeding database with Paris Open Data...')
+    // ---------------------------------------------------------------
+    // 1️⃣   Ensure we have a host
+    // ---------------------------------------------------------------
+    let host = await (prisma as any).user.findUnique({
+        where: { email: 'paris@loopark.com' },
+    });
 
-    // Create a official Loopark Host User for these public spots
-    const host = await (prisma as any).user.create({
-        data: {
-            email: 'paris@loopark.com',
-            name: 'Ville de Paris',
-            password: 'security_standard_2026',
-        },
-    })
-
-    const spotsData = [
-        { title: 'Station Suffren', address: '46 AV DE SUFFREN, Paris', capacity: 4, lat: 48.8537, lng: 2.2967, type: MobilityType.BIKE },
-        { title: 'Station Luynes', address: '2 RUE DE LUYNES, Paris', capacity: 4, lat: 48.8554, lng: 2.3267, type: MobilityType.BIKE },
-        { title: 'Station Volontaires', address: '37 RUE DES VOLONTAIRES, Paris', capacity: 4, lat: 48.8405, lng: 2.3086, type: MobilityType.BIKE },
-        { title: 'Station Jobbe Duval', address: '14 RUE JOBBE DUVAL, Paris', capacity: 4, lat: 48.8345, lng: 2.2987, type: MobilityType.BIKE },
-        { title: 'Station Galilee', address: '39 RUE GALILEE, Paris', capacity: 4, lat: 48.8702, lng: 2.2965, type: MobilityType.BIKE },
-        { title: 'Parking Truffaut', address: '20 RUE FRANCOIS TRUFFAUT, Paris', capacity: 20, lat: 48.8329, lng: 2.3854, type: MobilityType.BIKE },
-        { title: 'Station Liancourt', address: '15 RUE LIANCOURT, Paris', capacity: 4, lat: 48.8333, lng: 2.3275, type: MobilityType.BIKE },
-        { title: 'Station Paul Valery', address: '23 RUE PAUL VALERY, Paris', capacity: 4, lat: 48.8705, lng: 2.2895, type: MobilityType.BIKE },
-        { title: 'Parking Turin', address: '34 RUE DE TURIN, Paris', capacity: 4, lat: 48.8822, lng: 2.3244, type: MobilityType.BIKE },
-        { title: 'Station Saint-Simon', address: '3 RUE DE SAINT-SIMON, Paris', capacity: 4, lat: 48.8564, lng: 2.3241, type: MobilityType.BIKE },
-        { title: 'Station Wallons', address: '27 RUE DES WALLONS, Paris', capacity: 5, lat: 48.8382, lng: 2.3584, type: MobilityType.BIKE },
-        { title: 'Parking Belleville', address: '23 BD DE BELLEVILLE, Paris', capacity: 10, lat: 48.8682, lng: 2.3814, type: MobilityType.BIKE },
-        { title: 'Mégastation Port-Royal', address: '36 BD DE PORT-ROYAL, Paris', capacity: 48, lat: 48.8372, lng: 2.3481, type: MobilityType.BIKE },
-    ]
-
-    for (const spot of spotsData) {
-        await (prisma as any).spot.create({
+    if (!host) {
+        console.log('Creating official host...');
+        host = await (prisma as any).user.create({
             data: {
-                title: spot.title,
-                description: `Emplacement de stationnement vélo ${spot.capacity > 10 ? 'haute capacité' : 'sécurisé'} situé au ${spot.address}. Accessibilité 24/7.`,
-                address: spot.address,
-                capacity: spot.capacity,
-                price: 0, // Mark as free as per spreadsheet "Gratuit"
-                type: spot.type,
-                latitude: spot.lat,
-                longitude: spot.lng,
-                hostId: host.id,
+                email: 'paris@loopark.com',
+                name: 'Ville de Paris',
+                firstName: 'Ville',
+                lastName: 'de Paris',
+                emailVerified: new Date(),
+                password: 'security_standard_2026', // placeholder (hash it in prod)
             },
-        })
+        });
     }
 
-    console.log('Seeding finished successfully.')
+    // ---------------------------------------------------------------
+    // 2️⃣   Create an ADMIN account if none exists
+    // ---------------------------------------------------------------
+    const existingAdmin = await (prisma as any).user.findFirst({
+        where: { role: 'ADMIN' },
+    });
+
+    if (!existingAdmin) {
+        console.log('✅ No admin found – creating default admin');
+        await (prisma as any).user.create({
+            data: {
+                email: 'admin@loopark.com',
+                name: 'Admin Loopark',
+                firstName: 'Admin',
+                lastName: 'Loopark',
+                password: 'admin12345',          // plain for seed only
+                emailVerified: new Date(),
+                role: 'ADMIN',
+            },
+        });
+    } else {
+        console.log('✅ Admin already exists →', {
+            id: existingAdmin.id,
+            email: existingAdmin.email,
+        });
+    }
+
+    const csvFilePath = path.resolve(process.cwd(), 'data.csv');
+    const results: any[] = [];
+
+    console.log(`Reading CSV from: ${csvFilePath}`);
+
+    await new Promise((resolve, reject) => {
+        fs.createReadStream(csvFilePath)
+            .pipe(csv())
+            .on('data', (data) => results.push(data))
+            .on('end', async () => {
+                console.log(`Read ${results.length} rows from CSV.`);
+
+                // Clean existing spots for this host
+                console.log('Cleaning existing spots for this host...');
+                await (prisma as any).spot.deleteMany({
+                    where: { hostId: host.id },
+                });
+
+                console.log('Importing spots in batches...');
+                const BATCH_SIZE = 100;
+                for (let i = 0; i < results.length; i += BATCH_SIZE) {
+                    const batch = results.slice(i, i + BATCH_SIZE);
+                    const spotsToCreate = batch.map((row) => {
+                        const coords = row['geo_point_2d']
+                            ? row['geo_point_2d'].split(',').map((c: string) => parseFloat(c.trim()))
+                            : [null, null];
+
+                        // Map mobility type
+                        let mobilityType: MobilityType = MobilityType.BIKE;
+                        const regime = (row['Régime particulier'] || '').toLowerCase();
+                        if (regime.includes('trottinette')) {
+                            mobilityType = MobilityType.SCOOTER;
+                        } else if (regime.includes('mixte') || regime.includes('vélos')) {
+                            mobilityType = MobilityType.BIKE;
+                        }
+
+                        return {
+                            title: row['Adresse complète']
+                                ? `Station ${row['Adresse complète'].split(' ').slice(1).join(' ')}`
+                                : 'Station Loopark',
+                            description: `${row['Type mobilier'] || 'Arceau'} - ${row['Régime particulier'] || 'Vélos'}`,
+                            address: row['Adresse complète'] || 'Adresse inconnue',
+                            capacity: parseInt(row['Nombre places calculées']) || 1,
+                            price: row['Tarif'] === 'Gratuit' ? 0 : 1.0,
+                            type: mobilityType,
+                            latitude: coords[0],
+                            longitude: coords[1],
+                            hostId: host.id,
+                            status: 'APPROVED',
+                        };
+                    });
+
+                    await (prisma as any).spot.createMany({
+                        data: spotsToCreate,
+                        skipDuplicates: true,
+                    });
+
+                    if ((i + BATCH_SIZE) % 1000 === 0 || i + BATCH_SIZE >= results.length) {
+                        console.log(`Processed ${Math.min(i + BATCH_SIZE, results.length)} / ${results.length} spots...`);
+                    }
+                }
+
+                console.log('Seeding finished successfully.');
+                resolve(true);
+            })
+            .on('error', (error) => {
+                console.error('Error reading CSV:', error);
+                reject(error);
+            });
+    });
 }
 
 main()
     .then(async () => {
-        await (prisma as any).$disconnect()
+        await prisma.$disconnect();
+        await pool.end();
     })
     .catch(async (e) => {
-        console.error(e)
-        // @ts-ignore
-        await prisma.$disconnect()
-        process.exit(1)
-    })
+        console.error(e);
+        await prisma.$disconnect();
+        await pool.end();
+        process.exit(1);
+    });

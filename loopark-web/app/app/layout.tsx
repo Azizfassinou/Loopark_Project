@@ -1,36 +1,48 @@
+'use client';
+
 import { Navbar } from "@/components/ui/Navbar";
 import Link from "next/link";
 import { Search, MapPin, UserCircle } from "lucide-react";
+import { usePathname } from "next/navigation";
 
 export default function AppLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
-    return (
-        <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950">
-            {/* Shared Premium Navbar */}
-            <Navbar />
+    const pathname = usePathname();
 
-            {/* Main Content */}
-            <main className="flex-1 pb-20 md:pb-6">
+    const navItems = [
+        { href: '/app/search', label: 'Spots', icon: Search },
+        { href: '/app/host', label: 'Hôte', icon: MapPin },
+        { href: '/app/profile', label: 'Profil', icon: UserCircle },
+    ];
+
+    return (
+        <div className="min-h-screen flex flex-col bg-[var(--background)]">
+            <Navbar />
+            <main className="flex-1 pb-20 md:pb-0">
                 {children}
             </main>
 
-            {/* Mobile Bottom Navigation (Quick Access) */}
-            <nav className="md:hidden fixed bottom-0 left-0 right-0 border-t border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl px-6 py-3 flex justify-between items-center z-50 pb-safe shadow-[0_-8px_30px_rgba(0,0,0,0.04)]">
-                <Link href="/app/search" className="flex flex-col items-center gap-1 text-slate-400 hover:text-brand-green transition-colors">
-                    <Search className="w-6 h-6" />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Spots</span>
-                </Link>
-                <Link href="/app/host" className="flex flex-col items-center gap-1 text-slate-400 hover:text-brand-purple transition-colors">
-                    <MapPin className="w-6 h-6" />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Hôte</span>
-                </Link>
-                <Link href="/app/profile" className="flex flex-col items-center gap-1 text-slate-400 hover:text-brand-cyan transition-colors">
-                    <UserCircle className="w-6 h-6" />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Profil</span>
-                </Link>
+            {/* Mobile bottom nav */}
+            <nav className="md:hidden fixed bottom-0 left-0 right-0 border-t border-[var(--border)] bg-[var(--background)]/95 backdrop-blur-sm px-4 py-1 flex justify-around items-center z-50 safe-area-inset-bottom">
+                {navItems.map(({ href, label, icon: Icon }) => {
+                    const isActive = pathname === href;
+                    return (
+                        <Link
+                            key={href}
+                            href={href}
+                            className={`flex flex-col items-center gap-1 min-w-[60px] py-2 px-3 rounded-lg transition-colors ${isActive
+                                ? 'text-brand-green'
+                                : 'text-[var(--muted)] hover:text-[var(--foreground)]'
+                                }`}
+                        >
+                            <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.5]' : ''}`} />
+                            <span className="text-[10px] font-medium">{label}</span>
+                        </Link>
+                    );
+                })}
             </nav>
         </div>
     );

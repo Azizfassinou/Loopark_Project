@@ -12,18 +12,47 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  password      String?
-  accounts      Account[]
-  sessions      Session[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  spots         Spot[]
-  bookings      Booking[]
+  id                  String               @id @default(cuid())
+  name                String?              // computed: firstName + lastName
+  firstName           String?
+  lastName            String?
+  email               String?              @unique
+  emailVerified       DateTime?
+  image               String?
+  password            String?
+  role                UserRole             @default(USER)
+  accounts            Account[]
+  sessions            Session[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  spots               Spot[]
+  bookings            Booking[]
+  emailVerifications  EmailVerification[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique @default(cuid())
+  userId    String
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model EmailVerification {
+  id        String   @id @default(cuid())
+  token     String   @unique @default(cuid())
+  userId    String
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+enum UserRole {
+  USER
+  HOST
+  ADMIN
 }
 
 model Account {
@@ -62,20 +91,22 @@ model VerificationToken {
 }
 
 model Spot {
-  id          String    @id @default(cuid())
-  title       String
-  description String?
-  address     String
-  type        MobilityType
-  price       Float
-  capacity    Int
-  latitude    Float?
-  longitude   Float?
-  hostId      String
-  host        User      @relation(fields: [hostId], references: [id])
-  bookings    Booking[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id              String      @id @default(cuid())
+  title           String
+  description     String?
+  address         String
+  type            MobilityType
+  price           Float
+  capacity        Int
+  latitude        Float?
+  longitude       Float?
+  status          SpotStatus  @default(PENDING)
+  rejectionReason String?
+  hostId          String
+  host            User        @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  bookings        Booking[]
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 }
 
 enum MobilityType {
@@ -84,17 +115,25 @@ enum MobilityType {
   BOTH
 }
 
+enum SpotStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model Booking {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  spotId    String
-  spot      Spot     @relation(fields: [spotId], references: [id])
-  startDate DateTime
-  endDate   DateTime
-  status    BookingStatus @default(PENDING)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id               String        @id @default(cuid())
+  userId           String
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  spotId           String
+  spot             Spot          @relation(fields: [spotId], references: [id], onDelete: Cascade)
+  startDate        DateTime
+  endDate          DateTime
+  status           BookingStatus @default(PENDING)
+  stripeSessionId  String?       // Stripe Checkout Session ID
+  paymentStatus    PaymentStatus @default(PENDING)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 }
 
 enum BookingStatus {
@@ -102,4 +141,10 @@ enum BookingStatus {
   CONFIRMED
   CANCELLED
   COMPLETED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
 }
